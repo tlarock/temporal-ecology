@@ -5,33 +5,6 @@ import networkx as nx
 import random
 from trophic_network import *
 
-def simulate_chaos(G, T, output_dir):
-    rng = np.random.default_rng()
-    # Choose arrival times uniformly at random on 1,T
-    arrival_times = rng.integers(low=1, high=T, size=G.number_of_nodes())
-    # Choose departure times uniformly at random from a_i, T
-    departure_times = rng.integers(arrival_times+1, T+1)
-
-    # Simulate and save adjacency matrices
-    for t in range(T):
-        # figure out which nodes are active
-        active_nodes = set()
-        for node in G.nodes():
-            if arrival_times[node] <= t <= departure_times[node]:
-                active_nodes.add(node)
-
-        cascade_subgraph = nx.DiGraph(G.subgraph(active_nodes))
-        # In the output we want all of the nodes present, 
-        # so make sure they are all there
-        for node in G.nodes():
-            if node not in cascade_subgraph:
-                cascade_subgraph.add_node(node)
-
-        adjacency_matrix = nx.to_pandas_adjacency(cascade_subgraph)
-        file_path = os.path.join(output_dir, f'adj_matrix_{t}.csv')
-        adjacency_matrix.to_csv(file_path)
-
-
 def sigmoid(x, k):
     """
     Normalized tunable sigmoid function.
