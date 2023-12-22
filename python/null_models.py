@@ -109,7 +109,9 @@ def simulate_exponential(G, T, decay_factor, output_dir,
         probabilities = rng.uniform(size=len(active_nodes))
         if departure_type == "exponential":
             # Compute decay probabilites for each node based on their age
-            decay = np.array([np.exp(-decay_factor * (node_age[node]+1)) for node in range(node_age.shape[0])])
+            decay = np.array([np.exp(-decay_factor * (node_age[node]+1)) for
+                              node in range(node_age.shape[0]) if node in
+                              active_nodes])
             # The nodes with probability less than decay will be removed
             departed_nodes = set(np.where(probabilities < decay)[0])
             for node in active_nodes:
@@ -162,7 +164,7 @@ def simulate_exponential(G, T, decay_factor, output_dir,
 
         adjacency_matrices.append(nx.to_numpy_array(subgraph))
 
-    np.save(output_dir + "temporal_adjacencies", adjacency_matrices)
+    np.save(output_dir + "_temporal_adjacencies", adjacency_matrices)
 
 if __name__ == "__main__":
     # Parameters
@@ -172,20 +174,22 @@ if __name__ == "__main__":
     C = 0.15
     species_mass = get_species_mass(num_species, alpha, beta)
     interaction_graph = generate_network(species_mass, C)
-    T = 5  # Number of timesteps to simulate
-
-    output_dir = f'../results/S-{num_species}_alpha-{alpha}_beta-{beta}_C-{C}_T-{T}/'  # Directory to save the CSV files
-    # Ensure the output directory exists
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    T = 100  # Number of timesteps to simulate
 
     # Write the adjacency matrix of the whole network
-    adjacency_matrix = nx.to_pandas_adjacency(interaction_graph)
-    file_path = os.path.join(output_dir, f'adj_matrix_full.csv')
-    adjacency_matrix.to_csv(file_path)
+    adjacency_matrix = nx.to_numpy_array(interaction_graph)
 
     # Run the simulation and save the outputs
     #simulate_chaos(interaction_graph, T, output_dir)
     decay_factor = 0.8
-    simulate_exponential(interaction_graph, T, decay_factor, output_dir,
-                         arrival_type="sigmoid", departure_type="sigmoid")
+    for arrival_type in ["uniform", "exponential", "sigmoid"]:
+        for departure_type in ["uniform", "exponential", "sigmoid"]:
+            output_dir = f'../results/S-{num_species}_alpha-{alpha}_beta-{beta}_C-{C}_T-{T}_{arrival_type}_{departure_type}'  # Directory to save the CSV files
+            # Ensure the output directory exists
+            #if not os.path.exists(output_dir):
+            #    os.makedirs(output_dir)
+            file_path = output_dir + f'_adj_matrix_full'
+            np.save(file_path, adjacency_matrix)
+            print(arrival_type, departure_type)
+            simulate_exponential(interaction_graph, T, decay_factor, output_dir,
+                                 arrival_type=arrival_type, departure_type=departure_type)
