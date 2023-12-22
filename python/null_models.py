@@ -52,6 +52,7 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
     rng = np.random.default_rng()
 
     adjacency_matrices = []
+    node_activities = []
 
     if arrival_type == "uniform":
         # Choose arrival times uniformly at random on 1,T
@@ -66,15 +67,18 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
     inactive_nodes = list(G.nodes())
     departed_nodes = set()
     for t in range(1, T+1):
+        node_activity = np.zeros(G.number_of_nodes())
+
+        # Manage node arrivals
         if len(inactive_nodes) > 0:
             probabilities = rng.uniform(size=len(inactive_nodes))
-            # Manage node arrivals
             if arrival_type == "uniform":
                 # Check whether nodes need to be added to the network
                 for node in inactive_nodes:
-                    if t > arrival_times[node]:
+                    if t == arrival_times[node]:
                         active_nodes.add(node)
                         node_age[node] = 1
+                        node_activity[node] = 1
             elif arrival_type == "exponential":
                 # Same decay for every still-inactive node
                 decay = np.exp(-decay_factor * (t+1))
@@ -84,6 +88,7 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
                 for node in new_nodes:
                     active_nodes.add(node)
                     node_age[node] = 1
+                    node_activity[node] = 1
             elif arrival_type == "sigmoid":
                 entrance_probs = []
                 # Update node probabilities with sigmoid function
@@ -97,7 +102,7 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
                         k = -(proportion-0.5)*2
 
                     if k == 1.0:
-                        k -= 0.0001
+                        k -= 0.01
 
                     entrance_probs.append(sigmoid(t+1, k))
 
@@ -107,7 +112,7 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
                 for node in new_nodes:
                     active_nodes.add(node)
                     node_age[node] = 1
-
+                    node_activity[node] = 1
 
         # Manage node departures
         if len(active_nodes) > 0:
@@ -145,7 +150,7 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
                         k = -(proportion-0.5)*2
 
                     if k == 1.0:
-                        k -= 0.0001
+                        k -= 0.01
 
                     departure_probs.append(sigmoid(node_age[node], k))
 
@@ -169,8 +174,12 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
                 subgraph.add_node(node)
 
         adjacency_matrices.append(nx.to_numpy_array(subgraph))
+        for node in active_nodes:
+            node_activity[node] = 1
+        node_activities.append(np.array(node_activity))
 
     np.save(output_dir + "_temporal_adjacencies", adjacency_matrices)
+    np.save(output_dir + "_node_activities", node_activities)
 
 if __name__ == "__main__":
     # Parameters
@@ -194,8 +203,8 @@ if __name__ == "__main__":
             # Ensure the output directory exists
             #if not os.path.exists(output_dir):
             #    os.makedirs(output_dir)
-            file_path = output_dir + f'_adj_matrix_full'
-            np.save(file_path, adjacency_matrix)
+            np.save(output_dir + f'_adj_matrix_full', adjacency_matrix)
+            np.save(output_dir + f'_species_mass', species_mass)
             print(arrival_type, departure_type)
             simulate_temporal_network(interaction_graph, T, decay_factor, output_dir,
                                  arrival_type=arrival_type, departure_type=departure_type)
