@@ -17,8 +17,17 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
     """
 
 
-    arrival (bool): If true, use exponential arrival. Otherwise use exponential
-    departure.
+    Parameters
+    ---------
+    G (nx.DiGraph): The underlying trophic network
+    T (int): The total number of time steps
+    decay_factor (float): Parameter for exponential decay
+    arrival_type (str): String representing which mechanism to use for species
+                    arrival. Choices are 'uniform', 'exponential', 'sigmoid'.
+    departure_type (str): Same as arrival_type but for departure.
+    sigmoid_thresh (float): Threshold for change between positive and negative
+                            sigmoid function. Ignored for all others.
+
     """
     assert arrival_type in ["uniform", "exponential", "sigmoid"], f"arrival_type '{arrival_type}' not valid."
     assert departure_type in ["uniform", "exponential", "sigmoid"], f"departure_type '{departure_type}' not valid."
@@ -29,10 +38,10 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
 
     if arrival_type == "uniform":
         # Choose arrival times uniformly at random on 1,T
-        arrival_times = rng.integers(low=1, high=T, size=G.number_of_nodes())
+        arrival_times = rng.integers(low=1, high=T-1, size=G.number_of_nodes())
 
     if departure_type == "uniform":
-        duration = rng.integers(low=1, high=int(T/2.0), size=G.number_of_nodes())
+        duration = rng.integers(low=2, high=int(T/2.0), size=G.number_of_nodes())
 
     # Simulate and save adjacency matrices
     node_age = np.zeros(G.number_of_nodes())
@@ -138,8 +147,10 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
         # Actually remove departing nodes
         active_nodes -= departed_nodes
         inactive_nodes = [node for node in inactive_nodes if node not in active_nodes]
+
         # Construct the subgraph from active nodes
         subgraph = nx.DiGraph(G.subgraph(active_nodes))
+
         # In the output we want all of the nodes present, 
         # so make sure they are all there
         for node in G.nodes():
@@ -168,14 +179,10 @@ if __name__ == "__main__":
     adjacency_matrix = nx.to_numpy_array(interaction_graph)
 
     # Run the simulation and save the outputs
-    #simulate_chaos(interaction_graph, T, output_dir)
     decay_factor = 0.8
     for arrival_type in ["uniform", "exponential", "sigmoid"]:
         for departure_type in ["uniform", "exponential", "sigmoid"]:
             output_dir = f'../results/S-{num_species}_alpha-{alpha}_beta-{beta}_C-{C}_T-{T}_{arrival_type}_{departure_type}'  # Directory to save the CSV files
-            # Ensure the output directory exists
-            #if not os.path.exists(output_dir):
-            #    os.makedirs(output_dir)
             np.save(output_dir + f'_adj_matrix_full', adjacency_matrix)
             np.save(output_dir + f'_species_mass', species_mass)
             print(arrival_type, departure_type)
