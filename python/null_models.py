@@ -157,10 +157,8 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
     # Simulate and save adjacency matrices
     node_age = np.zeros(G.number_of_nodes())
     active_nodes = set()
-    # ToDo: For debugging
-    prev_active_nodes = set()
-    prev_edges = 0
     inactive_nodes = list(G.nodes())
+    leaving_nodes = set()
     departed_nodes = set()
     for t in range(1, T+1):
         # Manage node arrivals
@@ -181,21 +179,22 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
         if len(active_nodes) > 0:
             probabilities = rng.uniform(size=len(active_nodes))
             if departure_type == "uniform":
-                departed_nodes = uniform_departure(active_nodes, node_age, duration)
+                leaving_nodes = uniform_departure(active_nodes, node_age, duration)
             elif departure_type == "exponential":
-                departed_nodes = exponential_departure(rng, active_nodes, node_age,
+                leaving_nodes = exponential_departure(rng, active_nodes, node_age,
                                                        decay_factor)
             elif departure_type == "sigmoid":
-                departed_nodes = sigmoid_departure(rng, active_nodes, node_age,
+                leaving_nodes = sigmoid_departure(rng, active_nodes, node_age,
                                                    sigmoid_thresh, G)
             # Increment age for remaining nodes
             for node in active_nodes:
-                if node not in departed_nodes:
+                if node not in leaving_nodes:
                     node_age[node] += 1
 
         # Actually remove departing nodes
-        active_nodes -= departed_nodes
-        inactive_nodes = [node for node in G if node not in active_nodes]
+        active_nodes -= leaving_nodes
+        departed_nodes = departed_nodes.union(leaving_nodes)
+        inactive_nodes = [node for node in G if node not in active_nodes.union(departed_nodes)]
 
         # Construct the subgraph from active nodes
         subgraph = get_subgraph(G, active_nodes)
@@ -206,11 +205,6 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
             if node not in subgraph:
                 subgraph.add_node(node)
 
-        if active_nodes == prev_active_nodes:
-            assert subgraph.number_of_edges() == prev_edges
-
-        print(f"t: {t}, active nodes: {len(active_nodes)}, inactive: {len(inactive_nodes)}, subgraph edges: {subgraph.number_of_edges()}")
-
         adjacency_matrices.append(nx.to_numpy_array(subgraph,
                                                     nodelist=sorted(subgraph.nodes())))
 
@@ -219,10 +213,6 @@ def simulate_temporal_network(G, T, decay_factor, output_dir,
         for node in active_nodes:
             node_activity[node] = 1
         node_activities.append(np.array(node_activity))
-
-        # ToDo: For debugging
-        prev_active_nodes = set(active_nodes)
-        prev_edges = subgraph.number_of_edges()
 
     np.save(output_dir + "_temporal_adjacencies", adjacency_matrices)
     np.save(output_dir + "_node_activities", node_activities)
@@ -243,10 +233,8 @@ if __name__ == "__main__":
 
     # Run the simulation and save the outputs
     decay_factor = 0.8
-    #for arrival_type in ["uniform", "exponential", "sigmoid"]:
-    #    for departure_type in ["uniform", "exponential", "sigmoid"]:
-    for arrival_type in ["sigmoid"]:
-        for departure_type in ["sigmoid"]:
+    for arrival_type in ["uniform", "exponential", "sigmoid"]:
+        for departure_type in ["uniform", "exponential", "sigmoid"]:
             output_dir = f'../results/S-{num_species}_alpha-{alpha}_beta-{beta}_C-{C}_T-{T}_{arrival_type}_{departure_type}'  # Directory to save the CSV files
             np.save(output_dir + f'_adj_matrix_full', adjacency_matrix)
             np.save(output_dir + f'_species_mass', species_mass)
